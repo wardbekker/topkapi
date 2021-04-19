@@ -5,23 +5,22 @@ import (
 	"math"
 	"sort"
 
-	"github.com/dgryski/go-metro"
-	"github.com/wardbekker/topkapi/pkg/msgp"
+	"github.com/mitchellh/hashstructure"
 )
 
 var incompatibleSketches = errors.New("Incompatible sketches")
 
 type LocalHeavyHitter struct {
-	Key   string
+	Key   interface{}
 	Count uint64
 }
 
 type Sketch struct {
-	l      uint64 // number of rows
-	b      uint64 // think of this as the k
-	cms    [][]uint64
-	counts [][]int64
-	words  [][]string
+	l       uint64 // number of rows
+	b       uint64 // think of this as the k
+	cms     [][]uint64
+	counts  [][]int64
+	objects [][]interface{}
 }
 
 // New creates a new Topkapi Sketch with given error rate and confidence.
@@ -65,23 +64,23 @@ func NewTopK(k, approxCorpusSize uint64, delta float64) (*Sketch, error) {
 
 func newSketch(b, l uint64) *Sketch {
 	var (
-		cms    = make([][]uint64, l)
-		counts = make([][]int64, l)
-		words  = make([][]string, l)
+		cms     = make([][]uint64, l)
+		counts  = make([][]int64, l)
+		objects = make([][]interface{}, l)
 	)
 
 	for i := range counts {
 		cms[i] = make([]uint64, b)
 		counts[i] = make([]int64, b)
-		words[i] = make([]string, b)
+		objects[i] = make([]interface{}, b)
 	}
 
 	return &Sketch{
-		l:      l,
-		b:      b,
-		counts: counts,
-		words:  words,
-		cms:    cms,
+		l:       l,
+		b:       b,
+		counts:  counts,
+		objects: objects,
+		cms:     cms,
 	}
 }
 
@@ -96,11 +95,11 @@ func (sk *Sketch) Delta() float64 {
 }
 
 // Insert ...
-func (sk *Sketch) Insert(key string, count uint64) {
+func (sk *Sketch) Insert(key interface{}, count uint64) {
 	var (
-		hsum = metro.Hash64Str(key, 1337)
-		h1   = uint32(hsum & 0xffffffff)
-		h2   = uint32((hsum >> 32) & 0xffffffff)
+		hsum, _ = hashstructure.Hash(key, nil)
+		h1      = uint32(hsum & 0xffffffff)
+		h2      = uint32((hsum >> 32) & 0xffffffff)
 	)
 
 	for i := range sk.counts {
@@ -109,12 +108,12 @@ func (sk *Sketch) Insert(key string, count uint64) {
 
 		sk.cms[i][hi] += count
 
-		if sk.words[i][hi] == key {
+		if sk.objects[i][hi] == key {
 			sk.counts[i][hi] += int64(count)
 		} else {
 			sk.counts[i][hi] -= int64(count)
 			if sk.counts[i][hi] <= 0 {
-				sk.words[i][hi] = key
+				sk.objects[i][hi] = key
 				sk.counts[i][hi] = 1
 			}
 		}
@@ -124,22 +123,22 @@ func (sk *Sketch) Insert(key string, count uint64) {
 // Result ...
 func (sk *Sketch) Result(threshold uint64) []LocalHeavyHitter {
 	var (
-		seen = make(map[string]int)
+		seen = make(map[interface{}]int)
 		cs   = make([]LocalHeavyHitter, 0, sk.b)
 	)
 
-	for i := range sk.words {
-		for j, word := range sk.words[i] {
+	for i := range sk.objects {
+		for j, obj := range sk.objects[i] {
 			count := sk.cms[i][j]
 			if count < threshold {
 				continue
 			}
-			idx, ok := seen[word]
+			idx, ok := seen[obj]
 			if !ok {
 				idx = len(cs)
-				seen[word] = idx
+				seen[obj] = idx
 				cs = append(cs, LocalHeavyHitter{
-					Key:   word,
+					Key:   obj,
 					Count: count,
 				})
 			}
@@ -164,8 +163,8 @@ func (sk *Sketch) Merge(other *Sketch) error {
 
 	// HALP: This is probably wrong - the article doesn't explain how to merge!
 	for i := range sk.counts {
-		ws := sk.words[i]
-		ows := other.words[i]
+		ws := sk.objects[i]
+		ows := other.objects[i]
 		cnt := sk.counts[i]
 		ocnt := other.counts[i]
 		cms := sk.cms[i]
@@ -183,33 +182,5 @@ func (sk *Sketch) Merge(other *Sketch) error {
 		}
 	}
 
-	return nil
-}
-
-// Marshal ...
-func (sk *Sketch) Marshal() ([]byte, error) {
-	tmp := &msgp.Sketch{
-		L:      sk.l,
-		B:      sk.b,
-		CMS:    sk.cms,
-		Counts: sk.counts,
-		Words:  sk.words,
-	}
-	return tmp.MarshalMsg(nil)
-}
-
-// Unmarshal ...
-func (sk *Sketch) Unmarshal(p []byte) error {
-	tmp := &msgp.Sketch{}
-	if _, err := tmp.UnmarshalMsg(p); err != nil {
-		return err
-	}
-	*sk = Sketch{
-		l:      tmp.L,
-		b:      tmp.B,
-		cms:    tmp.CMS,
-		counts: tmp.Counts,
-		words:  tmp.Words,
-	}
 	return nil
 }
