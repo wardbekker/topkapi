@@ -5,8 +5,8 @@ import (
 	"math"
 	"sort"
 
-	"github.com/axiomhq/topkapi/internal/msgp"
 	"github.com/dgryski/go-metro"
+	"github.com/wardbekker/topkapi/internal/msgp"
 )
 
 var incompatibleSketches = errors.New("Incompatible sketches")
