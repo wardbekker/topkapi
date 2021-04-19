@@ -6,7 +6,7 @@ import (
 	"sort"
 
 	"github.com/dgryski/go-metro"
-	"github.com/wardbekker/topkapi/internal/msgp"
+	"github.com/wardbekker/topkapi/pkg/msgp"
 )
 
 var incompatibleSketches = errors.New("Incompatible sketches")
