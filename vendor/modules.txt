@@ -1,14 +1,6 @@
-# github.com/davecgh/go-spew v1.1.0
-github.com/davecgh/go-spew/spew
 # github.com/dgryski/go-metro v0.0.0-20200812162917-85c65e2d0165
 ## explicit
 github.com/dgryski/go-metro
-# github.com/pmezard/go-difflib v1.0.0
-github.com/pmezard/go-difflib/difflib
-# github.com/stretchr/testify v1.7.0
+# github.com/mitchellh/hashstructure v1.1.0
 ## explicit
-github.com/stretchr/testify/assert
-# github.com/tinylib/msgp v1.1.5
-## explicit
-# gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
-gopkg.in/yaml.v3
+github.com/mitchellh/hashstructure
